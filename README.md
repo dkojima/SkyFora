@@ -4,6 +4,8 @@ Skyfora is a platform for decentralized blogging and discussions running entirel
 
 Censorship free and as anonymous as you want. Everyone is responsible for their own content.
 
+Follow the Skyfora DevBlog: ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ 
+
 Demo Video:
 https://siasky.net/AADAT0GCtg6EFU4xZYQyDRcjYcdmNkzQCFvoDh3K5TAwrw/
 
