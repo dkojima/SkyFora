@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SkyFora</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://unpkg.com/vue@2.6.12/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/http-vue-loader"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link rel="stylesheet" href="main.css">
+  </head>
+
+  <body>
+    <div id="app" class="" @click="ui.el.sourceEditor.isOpen || ui.el.postEditor.isOpen ? undefined : ui.sidebarOpen = false">
+
+      <header>
+        <ul id="menuDropdown" class="dropdown-content">
+          <li><a @click.stop="openSidebar('profile')">my profile</a></li>
+          <li><a @click.stop="openSidebar('watchlist')">watchlist</a></li>
+          <li class="divider"></li>
+          <li><a @click.stop="ui.el.confEditor.open()">settings</a></li>
+          <li><a @click.stop="ui.showHelp = !ui.showHelp; $forceUpdate()">help</a></li>
+          <li class="divider"></li>
+          <li><a @click.stop="openSidebar('login')">{{ loggedIn ? 'logout' : 'login'}}</a></li>
+        </ul>
+        <nav>
+          <div class="nav-wrapper">
+            <h1 @click="unzoomProfile">
+              <div class="jdenticon-icon" style="width: 60px;height: 60px;" v-if="user.publicKey">
+                <div class="rotation">
+                  <svg class="glow" :style="{
+                    opacity: userSkyforaId ? 1 : 0
+                  }" width="100%" height="100" :data-jdenticon-value="userSkyforaId"></svg>
+                </div>
+              </div>
+              SkyFora
+            </h1>
+            <ul id="nav-mobile" class="right">
+              <!-- <li><a @click="ui.sidebarOpen = !ui.sidebarOpen">
+                <i class="material-icons">menu</i>
+              </a></li> -->
+              <li><a ref="menuTrigger" data-target="menuDropdown" @click="ui.sidebarOpen = false">
+                <i class="material-icons right">menu</i>
+              </a></li>
+            </ul>
+            <div class="sec" @click.stop="openSidebar('profile')">
+              <span class="material-icons"
+              >perm_identity</span>
+              <span>
+                {{userProfile.name && userProfile.name.length > 0 ? userProfile.name : userSkyforaId}}
+              </span>
+            </div>
+            <div class="sec" @click.stop="openSidebar('watchlist')">
+              <span class="material-icons"
+              >visibility</span>
+              <span>
+                {{this.conf.channel}}:
+                [{{userWatchlist.length}}<span v-if="watchlistSourceCount != userWatchlist.length">
+                  / {{watchlistSourceCount}}
+                </span>]
+              </span>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <div class="row">
+
+        <div class="col" :class="{
+          s8: ui.sidebarOpen,
+          s12: !ui.sidebarOpen
+        }" id="main">
+
+          <div class="status-info">
+            <span :style="{
+              opacity: loggedIn ? 1 : 0
+            }" ref="statusTicker">
+
+            </span>
+
+            <a class="btn right" @click="createPost()" v-if="loggedIn">
+              New Post
+            </a>
+          </div>
+
+          <div
+            class="profileZoomInfo"
+            :style="{
+              width: ui.sidebarOpen ? '70%': '100%'
+            }"
+            v-if="zoomedProfile != undefined"
+          >
+            <div class="jdenticon-icon" style="width: 60px;height: 60px; vertical-align: text-bottom;">
+              <div class="rotation">
+                <svg class="glow" :style="{
+                  opacity: zoomedProfile ? 1 : 0
+                }" width="100%" height="100" :data-jdenticon-value="zoomedProfileId"></svg>
+              </div>
+            </div>
+            <div class="right"
+            style="margin: 2em 3em;">
+
+              <a
+                class="btn right"
+                v-if="['me', 'watchlist'].indexOf(zoomedProfile.rel) < 0"
+                @click="openSourceEditor(zoomedProfileId)"
+              >
+                Add to watchlist
+              </a>
+              <a
+                class="btn right"
+                v-if="zoomedProfile.rel == 'watchlist'"
+                @click="removeSourceFromWatchlist(zoomedProfileId)"
+              >
+                Remove from watchlist
+              </a>
+            </div>
+
+            <h3
+            >{{shownProfileName(zoomedProfileId)}}</h3>
+
+            {{zoomedProfileId}}
+
+            <div >
+              <hr>
+              <a @click="unzoomProfile"> <i class="material-icons">keyboard_arrow_left</i>See all posts </a>
+              <a class="btn right"
+              style="margin-right: 3em;"
+              @click="showZoomedProfile()"> <i class="material-icons"></i>See Profile Info</a>
+              <div class="chip right" style="margin-right: 1em;">{{zoomedProfile.data.posts.length}} posts from {{shownProfileName(zoomedProfileId)}} </div>
+              <br><br>
+            </div>
+          </div>
+          <div v-if="!loggedIn">
+            <h3>Welcome to Skyfora</h3>
+            <sub>beta version</sub>
+            <hr>
+
+            <p>
+              Skyfora is a platform for decentralized blogging and discussions running entirely on <a  target="_blank" href="https://siasky.net/">Sia Skynet</a> and <a href="https://nebulouslabs.github.io/skynet-docs/?javascript--browser#skydb"  target="_blank">SkyDB</a> Technology.
+            </p>
+            <p>
+              It is inspired by reddit and *chan imageboards.
+              Censorship free and anonymous. Everyone is reponsible for their own content.
+            </p>
+            <p>
+              It was started as part of the <a  target="_blank" href="https://gitcoin.co/hackathon/skydb">SkyDB Debut Hackathon</a>.
+            </p>
+
+            <h4>How to use it</h4>
+            <ol>
+              <li>
+                Locate the <a @click.stop="openSidebar('login')">login interface</a> on the right, or open it with the menu above.
+              </li>
+              <li>
+                You don't need to create an account. Enter any login/password combination.<br>
+                <sup>Remember to keep it secure! You cannot change it afterwards!</sup>
+              </li>
+              <li>
+                Each login/password combination has a unique SkyforaID, and unique icon.<br>
+                This  makes it easy to identify and remember Skyfora Identities.
+              </li>
+              <li>
+                Click 'LOAD PROFILE' to start using your account.
+              </li>
+              <li>
+                Don't worry, you can log out at any time!
+              </li>
+            </ol>
+
+
+
+          </div>
+          <div v-if="(loggedIn && displayPosts.length == 0) || ui.showHelp"
+          >
+            <a v-if="ui.showHelp" @click="ui.showHelp = false; $forceUpdate()" style="float:right;">
+              close quick help
+            </a>
+            <h4 v-if="displayPosts.length == 0">There are no posts here yet!</h4>
+            <h4 v-else>Quick help</h4>
+            <h5>Add sources to your Watchlist</h5>
+            You can follow other Skyfora users posts by adding their Skyfora IDs to your watchlist.<br>
+            You can also add URLs to lists of Skyfora IDs to follow all IDs in that URL.
+
+            <ol>
+              <li>
+                Click on the <i class="material-icons">visibility</i> above or use the menu to open your <a @click.stop="openSidebar('watchlist')">watchlist</a>.
+              </li>
+              <li>
+                You can add a Skyfora ID (like <b>ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ</b>) to you watchlist by click 'ADD SOURCE'
+              </li>
+              <li>
+                Try adding a URL with a list of Skyfora ID to watch all of them.
+              </li>
+              <li>
+                Share your own Skyfora ID ({{userSkyforaId}}) with others!
+              </li>
+            </ol>
+            <hr>
+            <h5>Create your first post</h5>
+            <ol>
+              <li>
+                Click <a @click="createPost(undefined)">here</a> or use the 'NEW POST' button below
+              </li>
+              <li>
+                Write your post's subject, text, add any files/media you like and click 'PUBLISH POST'
+                <sup>Large files can take a long time to upload, so please be mindful of file sizes!</sup>
+              </li>
+              <li>
+                Wait for your post to be published, and share your SkyforaID with others so they can read it!
+              </li>
+            </ol>
+          </div>
+          <postlist
+
+            v-if="loggedIn"
+
+            :style="{
+              marginTop: zoomedProfile != undefined ? '12em' : '0'
+            }"
+
+            :posts="displayPosts"
+            :user-skyfora-id="userSkyforaId"
+            :zoomed-profile="zoomedProfileId"
+
+            @edit-post="editPost"
+            @remove-post="removePost"
+            @create-post="createPost"
+            @hover-profile="hoverProfile"
+            @profile-click="zoomProfile"
+
+          />
+
+        </div>
+        <div class="col s4" id="sidebar" @click.stop.prevent="ui.sidebarOpen = true"  :class="{
+          open: ui.sidebarOpen
+        }">
+          <div v-if="ui.sidebarContent == 'profile'" class="col s12">
+            <div v-if="loggedIn">
+              <br>
+              <b>My Skyfora ID</b>
+              <div class="key">
+                {{userSkyforaId}}
+              </div>
+              <hr>
+            </div>
+
+            <h5>my profile</h5>
+
+            <div v-if="loggedIn">
+
+              <div class="jdenticon">
+                <div class="rotation" :style="{
+                  opacity: userSkyforaId ? 1 : 0.25
+                }">
+                  <div class="jdenticon-inner">
+                    <svg :style="{
+                      opacity: userSkyforaId ? 1 : 0
+                    }" width="200" height="200" :data-jdenticon-value="userSkyforaId" transform="rotate(45)" id="loginJdenticon"></svg>
+                    <div class="hash-circle" :style="{
+                      opacity: userSkyforaId ? 1 : 0.25
+                    }">
+                      <span v-for="(t, tindex) in ['♦'].concat(Array.from(userSkyforaId.split('')))" v-html="t" :style="{
+                        transform: `rotate(${tindex*(360 / (userSkyforaId.length + 1))}deg)`
+                      }">
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="input-field" v-for="pk in Object.keys(userProfile)">
+                <i class="material-icons rfield" v-if="pk != 'name'" @click="removeUserProfileField(pk)">close</i>
+                <input
+                  type="text"
+                  autocomplete="off"
+                  v-model="userProfile[pk]"
+                  >
+                <label>{{pk}}</label>
+              </div>
+
+              <button id="load-profile-btn"
+                class="btn waves-effect waves-light"
+                @click="addUserProfileField"
+              >
+                Add field*
+              </button>
+              <sup>*add as many as you need!</sup>
+
+              <div>
+                <hr>
+                <button id="load-profile-btn"
+                  class="btn waves-effect waves-light"
+                  @click="saveData()"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+            <div v-else>
+              <br><br>
+              <a @click="openSidebar('login')">Log in</a> first.
+            </div>
+
+
+          </div>
+          <div v-if="ui.sidebarContent == 'watchlist'" class="col s12">
+            <div v-if="loggedIn">
+              <br>
+              <b>My Skyfora ID</b>
+              <div class="key">
+                {{userSkyforaId}}
+              </div>
+              <hr>
+            </div>
+            <h5>watchlist [{{userWatchlist.length}}<span v-if="watchlistSourceCount != userWatchlist.length">
+              / {{watchlistSourceCount}}
+            </span>]</h5>
+
+            <div v-if="loggedIn">
+
+              <ul class="watchlist">
+                <li v-if="userWatchlist.length == 0">
+                  NO SOURCES YET
+                </li>
+                <li v-for="id in userWatchlist">
+                  <i class="material-icons rfield" @click="removeSourceFromWatchlist(id)">close</i>
+                  <div class="">
+                    {{id}}
+                  </div>
+                </li>
+              </ul>
+
+              <button id="load-profile-btn"
+                class="btn waves-effect waves-light"
+                @click.stop.prevent="openSourceEditor()"
+              >
+                Add Source
+              </button>
+            </div>
+            <div v-else>
+              <br><br>
+              <a @click="openSidebar('login')">Log in</a> first.
+            </div>
+
+
+          </div>
+          <div v-if="ui.sidebarContent == 'login'" class="col s12">
+            <h5>{{loggedIn ? 'logged in as' : 'login'}}</h5>
+            {{loggedIn && userProfile.name && userProfile.name.length > 0 ? userProfile.name : ''}}
+            <div v-if="!loggedIn">
+              <div class="input-field">
+                <i class="material-icons prefix">login</i>
+                <input id="login"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="Login"
+                  v-model="user.login"
+                  @input="refreshIdentity()"
+                  >
+              </div>
+              <div class="input-field">
+                <i class="material-icons prefix">lock</i>
+                <input id="userpassword"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Password"
+                  v-model="user.password"
+                  @input="refreshIdentity()"
+                >
+              </div>
+            </div>
+            <div id="public-key" v-if="user.publicKey">
+              <hr>
+              <b>My Skyfora ID</b>
+              <div class="key">
+                {{userSkyforaId}}
+              </div>
+              <hr>
+              <div class="jdenticon">
+                <div class="rotation" :style="{
+                  opacity: userSkyforaId ? 1 : 0.25
+                }">
+                  <div class="jdenticon-inner">
+                    <svg :style="{
+                      opacity: userSkyforaId ? 1 : 0
+                    }" width="200" height="200" :data-jdenticon-value="userSkyforaId" transform="rotate(45)" id="loginJdenticon"></svg>
+                    <div class="hash-circle" :style="{
+                      opacity: userSkyforaId ? 1 : 0.25
+                    }">
+                      <span v-for="(t, tindex) in ['♦'].concat(Array.from(userSkyforaId.split('')))" v-html="t" :style="{
+                        transform: `rotate(${tindex*(360 / (userSkyforaId.length + 1))}deg)`
+                      }">
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
+
+            <div
+              v-if="!loggedIn && user.publicKey">
+              <hr>
+              <button id="load-profile-btn"
+                class="btn waves-effect waves-light"
+                @click="loadProfile(true)"
+              >
+                Load profile
+              </button>
+            </div>
+
+
+            <div v-if="loggedIn">
+              <br>
+              <hr>
+              <br>
+              <button id="load-profile-btn"
+
+                class="btn waves-effect waves-light"
+                @click="logoutProfile"
+              >
+                Logout
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <div id="post-editor" class="modal" @click.stop>
+        <div class="modal-content">
+          <h4>
+            <span v-if="isPostId(ui.newPost.subject)">Replying...</span>
+            <span v-else>{{ui.newPost.id ? 'Editing post...' : 'Create post'}}</span>
+
+            <a class="right btn-flat" @click="ui.el.postEditor.close()">
+              <i class="material-icons">close</i>
+            </a>
+          </h4>
+          <hr>
+          <div class="input-field col s12" v-if="!isPostId(ui.newPost.subject)">
+            <input placeholder="Subject" type="text" autocomplete="false" v-model="ui.newPost.subject">
+          </div>
+          <div class="input-field col s12">
+            <textarea id="post-textarea" class="materialize-textarea" placeholder="Text" v-model="ui.newPost.text"></textarea>
+          </div>
+          <div class="input-field col s12">
+            <a class="btn right" @click="selectMedia">Add media</a>
+            <div class="chip" v-for="(m, mindex) in ui.newPost.media">
+              <img :src="absSkylink(m.src)" v-if="m.type.startsWith('image/')">
+              {{m.type}}
+              <i class="closea material-icons" @click="ui.newPost.media.splice(mindex,1);$forceUpdate()">close</i>
+            </div>
+            <div class="chip" v-for="(f, findex) in ui.newPost.files">
+              <i class="material-icons">cloud_upload</i>
+              {{f.name}}
+              <i class="closea material-icons" @click="ui.newPost.files.splice(findex,1);$forceUpdate()">close</i>
+            </div>
+            <hr style="clear:both;">
+            <input type="file"
+              style="display:none"
+              ref="inputFile"
+              multiple
+              @change="addMedia"
+            >
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a class="btn left" @click="clearPostForm()">Clear</a>
+          <a class="btn" @click="ui.newPost.id ? updatePost(): addPost()">
+            {{ui.newPost.id ? 'Update post' : 'Publish post' }}
+          </a>
+        </div>
+      </div>
+
+      <div id="profile-view" class="modal" @click.stop>
+        <div class="modal-content"  v-if="zoomedProfile">
+          <h5>
+            {{zoomedProfileId}}
+
+            <a class="right btn-flat" @click="ui.el.profileView.close()">
+              <i class="material-icons">close</i>
+            </a>
+          </h5>
+          <hr>
+          <div class="jdenticon">
+            <div class="rotation" :style="{
+              opacity: zoomedProfileId ? 1 : 0.25
+            }">
+              <div class="jdenticon-inner">
+                <svg :style="{
+                  opacity: zoomedProfileId ? 1 : 0
+                }" width="200" height="200" :data-jdenticon-value="zoomedProfileId" transform="rotate(45)" id="loginJdenticon"></svg>
+                <div class="hash-circle" :style="{
+                  opacity: zoomedProfileId ? 1 : 0.25
+                }">
+                  <span v-for="(t, tindex) in ['♦'].concat(Array.from(zoomedProfileId.split('')))" v-html="t" :style="{
+                    transform: `rotate(${tindex*(360 / (zoomedProfileId.length + 1))}deg)`
+                  }">
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-for="f in Object.entries(zoomedProfile.data.profile)">
+            <h5>{{f[0]}}</h5>
+            <div>
+              {{f[1] && f[1].length ? f[1] : '&lt;undefined&gt;'}}
+            </div>
+            <hr>
+          </div>
+        </div>
+      </div>
+
+      <div id="conf-editor" class="modal" @click.stop>
+        <div class="modal-content">
+          <h4>
+            Settings
+
+            <a class="right btn-flat" @click="ui.el.confEditor.close()">
+              <i class="material-icons">close</i>
+            </a>
+          </h4>
+          <hr>
+          <div class="row">
+            <div class=" input-field col s12">
+              <input
+                placeholder="SkyPortal URL"
+                type="text"
+                autocomplete="false"
+                v-model="conf.skyPortal"
+              >
+              <label>SkyPortal</label>
+            </div>
+
+            <div class=" input-field col s12">
+              <input
+                placeholder="Channel string"
+                type="text"
+                autocomplete="false"
+                v-model="conf.channel"
+              >
+              <label>Channel string</label>
+            </div>
+
+            <div class="col s12">
+              <hr>
+              <a target="_blank" href="https://github.com/dkojima/SkyFora">Skyfora on Github</a>
+              <a target="_blank" style="float:right" href="https://siasky.net/">Sia Skynet</a>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <hr>
+          <a class="btn" style="float: left" @click="restoreDefConf()" >
+            Restore defaults
+          </a>
+          <a class="btn" :class="{
+            disabled: !conf.skyPortal && ! conf.channel
+          }" @click="saveConf()" >
+            Save & Reload
+          </a>
+        </div>
+      </div>
+
+      <div id="source-editor" class="modal" @click.stop>
+        <div class="modal-content">
+          <h4>
+            Add source to watchlist
+
+            <a class="right btn-flat" @click="ui.el.sourceEditor.close()">
+              <i class="material-icons">close</i>
+            </a>
+          </h4>
+          <hr>
+          <div class="row">
+            <div class="col s10">
+              <input
+                @input="processSourceInput"
+                placeholder="SkyforaID or URL to add"
+                type="text"
+                autocomplete="false"
+                v-model="ui.newSource"
+              >
+            </div>
+            <div class="col s2">
+              <a class="btn right" style="width: 100%;" @click="processSourceBtn()">
+                Load
+              </a>
+            </div>
+          </div>
+          <div class="col s12">
+            <div
+              v-if="isSkyforaId(ui.newSource)"
+              class="jdenticon-icon left"
+              style="width: 60px;height: 60px; margin: 0 1em 1em;"
+            >
+              <div class="rotation">
+                <svg class="glow" :style="{
+                  opacity: userSkyforaId ? 1 : 0
+                }" width="100%" height="100" :data-jdenticon-value="ui.newSource"></svg>
+              </div>
+            </div>
+            <ul v-if="ui.newSourceCache">
+              <li>
+                <b>Post count:</b> {{ui.newSourceCache.posts ? ui.newSourceCache.posts.length : 'undefined'}}
+              </li>
+              <li v-for="e in Object.entries(ui.newSourceCache.profile)">
+                <b>{{e[0]}}:</b>
+                {{(e[1] && e[1].length > 0) ? e[1] : 'undefined'}}
+              </li>
+            </ul>
+            <div v-else>
+              {{ ui.newSourceStatus }}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <hr>
+          <a class="btn" :class="{
+            disabled: !ui.newSourceOK
+          }" @click="addSourceToWatchlist(ui.newSource)" >
+            Add source
+          </a>
+        </div>
+      </div>
+
+      <div id="loading"
+        :class="{
+          show: ui.loading
+        }"
+      >
+        <div>
+          <div class="sk-cube-grid">
+            <div class="sk-cube sk-cube1"></div>
+            <div class="sk-cube sk-cube2"></div>
+            <div class="sk-cube sk-cube3"></div>
+            <div class="sk-cube sk-cube4"></div>
+            <div class="sk-cube sk-cube5"></div>
+            <div class="sk-cube sk-cube6"></div>
+            <div class="sk-cube sk-cube7"></div>
+            <div class="sk-cube sk-cube8"></div>
+            <div class="sk-cube sk-cube9"></div>
+          </div>
+          <div class="" v-html="ui.loadingContent"></div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bigpicture@2.5.3/dist/BigPicture.min.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js" charset="utf-8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jdenticon@3.0.1" async></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
