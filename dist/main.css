@@ -343,7 +343,7 @@ ul.watchlist li {
 }
 
 .modal-overlay {
-  pointer-events: none;
+  pointer-events: painted;
 }
 
 #loading {

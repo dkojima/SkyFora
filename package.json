@@ -1,6 +1,6 @@
 {
   "name": "skyfora",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A platform for creating decentralized communities on Skynet",
   "private": true,
   "scripts": {

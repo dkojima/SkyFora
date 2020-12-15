@@ -3,6 +3,7 @@
 
     <div
       class="post"
+      :id="`${p.id}`"
       v-for="(p, pindex) in posts"
       :key="pindex"
       >
@@ -12,7 +13,7 @@
           focused: shownReplies[getPostId(p)],
 
           mine: profileInfo(p.source).rel == 'me',
-          zoomed: zoomedProfile == p.source
+          zoomed: zoomedProfile == p.source && zoomedPostId == p.id
         }"
       >
         <div class="card-image" v-if="p.media && p.media[0]">
@@ -89,7 +90,9 @@
               </a>
               <span v-if="p.loadStatus != 'notfound' && p.source == userSkyforaId">
                 |
-                <a @click="editPost(p)">
+                <a
+                @click="editPost(p)"
+                >
                   <i class="material-icons">edit</i>
                 </a>
                 <a @click="removePost(p)">
@@ -97,6 +100,10 @@
                 </a>
               </span>
             </div>
+
+            <a @click="getLink(p)">
+              <i class="material-icons">link</i>
+            </a>
 
             <a @click="createPost(p)">
               <i class="material-icons">comment</i> {{p.replies ? p.replies.length : 0}}
@@ -113,6 +120,7 @@
           :posts="p.replies"
           :user-skyfora-id="userSkyforaId"
           :zoomed-profile="zoomedProfile"
+          :zoomed-post-id="zoomedPostId"
           @edit-post="editPost"
           @remove-post="removePost"
           @create-post="createPost"
@@ -149,6 +157,7 @@
       'posts',
       'user-skyfora-id',
       'zoomed-profile',
+      'zoomed-post-id',
       'reps'
     ],
     data() {
@@ -165,6 +174,18 @@
       }
     },
     mounted() {
+
+      if (!this.reps) {
+        setTimeout(()=>{
+          if (!this.reps && this.zoomedPostId) {
+            let offtop = document.getElementById(this.zoomedPostId).offsetTop
+            window.scrollTo({
+              top: offtop - 400,
+              behavior: 'smooth'
+            })
+          }
+        }, 1000)
+      }
     },
     methods: {
       postTextFilter(text) {
@@ -176,17 +197,21 @@
       },
       getTooltipProfile(skyforaId) {
         let info = this.profileInfo(skyforaId)
-        let pe = Object.entries(info.data.profile)
-        let pdata = ``
-        for (var i = 0; i < pe.length; i++) {
-          pdata += `<b>${pe[i][0]}</b>: ${pe[i][1].length ? pe[i][1] : '&lt;undefined&gt;'}<br>`
+        if (info.data && info.data.profile) {
+          let pe = Object.entries(info.data.profile)
+          let pdata = ``
+          for (var i = 0; i < pe.length; i++) {
+            pdata += `<b>${pe[i][0]}</b>: ${pe[i][1].length ? pe[i][1] : '&lt;undefined&gt;'}<br>`
+          }
+
+          return `
+          <svg width="100" height="100" data-jdenticon-value="${skyforaId}"></svg>
+          <div class="user-info">${pdata}</div>
+          <div class="skyfora-id">${skyforaId}<br>${info.rel != 'me' ? info.rel : ''}</div>
+          `
         }
 
-        return `
-        <svg width="100" height="100" data-jdenticon-value="${skyforaId}"></svg>
-        <div class="user-info">${pdata}</div>
-        <div class="skyfora-id">${skyforaId}<br>${info.rel != 'me' ? info.rel : ''}</div>
-        `
+
       },
       shownProfileName(skyforaId) {
         let info = this.profileInfo(skyforaId)
@@ -224,10 +249,34 @@
       createPost(p){
         this.$emit('create-post', p)
       },
+      getLink(p) {
+        function copyStringToClipboard (str) {
+         // Create new element
+         var el = document.createElement('textarea');
+         // Set value (string to be copied)
+         el.value = str;
+         // Set non-editable to avoid focus and move outside of view
+         el.setAttribute('readonly', '');
+         el.style = {position: 'absolute', left: '-9999px'};
+         document.body.appendChild(el);
+         // Select text inside element
+         el.select();
+         // Copy text to clipboard
+         document.execCommand('copy');
+         // Remove temporary element
+         document.body.removeChild(el);
+        }
+        let link = `${window.location.origin}/#${this.getPostId(p)}`
+        copyStringToClipboard(
+          link
+        )
+        M.toast({html: `Shareable post link copied to clipboard!<br>${link}`})
+      },
       profileInfo(skyforaId) {
-        return skyforaApp.getProfileInfo(skyforaId)
+        return ( skyforaApp.getProfileInfo(skyforaId))
       },
       hoverProfile(p) {
+        this.$forceUpdate()
         this.$emit('hover-profile', p)
         this.refreshJdenticons()
       },

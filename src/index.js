@@ -70,6 +70,7 @@ var app = new Vue({
         postEditor: undefined,
         sourceEditor: undefined,
         profileView: undefined,
+        helpView: undefined,
         confEditor: undefined
       },
 
@@ -100,6 +101,7 @@ var app = new Vue({
 
     zoomedProfile: undefined,
     zoomedProfileId: undefined,
+    zoomedPostId: undefined,
 
     user: {
       login: '',
@@ -170,25 +172,27 @@ var app = new Vue({
 
     this.skyClient = new SkynetClient(this.conf.skyPortal)
 
-    if (localStorage.login) {
-      this.user.login = localStorage.login
+    if (localStorage.skyforaLogin) {
+      this.user.login = localStorage.skyforaLogin
     }
-    if (localStorage.password) {
-      this.user.password = localStorage.password
+    if (localStorage.skyforaPassword) {
+      this.user.password = localStorage.skyforaPassword
     }
-    if (localStorage.skyPortal) {
-      this.conf.skyPortal = localStorage.skyPortal
+    if (localStorage.skyforaPortal) {
+      this.conf.skyPortal = localStorage.skyforaPortal
     }
-    if (localStorage.channel) {
-      this.conf.channel = localStorage.channel
+    if (localStorage.skyforaChannel) {
+      this.conf.channel = localStorage.skyforaChannel
     }
 
-    let hash = decodeURI(window.location.hash.substr(1))
-    if (this.isSkyforaId(hash)) {
-      this.hash = hash
-    }
+    this.processHash()
+
+    window.addEventListener("hashchange", () => {
+      this.processHash()
+    });
 
     this.ui.el.postEditor = M.Modal.init(document.querySelector('#post-editor'))
+    this.ui.el.helpView = M.Modal.init(document.querySelector('#help-view'))
     this.ui.el.sourceEditor = M.Modal.init(document.querySelector('#source-editor'))
     this.ui.el.profileView = M.Modal.init(document.querySelector('#profile-view'))
     this.ui.el.confEditor = M.Modal.init(document.querySelector('#conf-editor'))
@@ -207,10 +211,26 @@ var app = new Vue({
   },
   methods: {
 
+    async processHash() {
+      var hash = decodeURI(window.location.hash.substr(1))
+      var self = this
+      if (this.isSkyforaId(hash)) {
+        this.hash = hash
+        hash = hash.split(':')
+        if (this.isSkyforaId(hash[0])) {
+          var linkedProfile = await this.getProfileInfo(hash[0])
+
+          this.zoomProfile(hash[0])
+          this.zoomedPostId = hash[1]
+
+        }
+      }
+    },
+
     saveConf() {
       if (confirm('Save these settings and reload?')) {
-        localStorage.skyPortal = this.conf.skyPortal
-        localStorage.channel = this.conf.channel
+        localStorage.skyforaPortal = this.conf.skyPortal
+        localStorage.skyforaChannel = this.conf.channel
         location.reload()
       }
     },
@@ -234,16 +254,48 @@ var app = new Vue({
     unzoomProfile(){
       this.zoomedProfile = undefined
       this.zoomedProfileId = ''
+      this.zoomedPostId = undefined
+      window.location.hash = ``
       this.loadProfile()
     },
 
-    zoomProfile(skyforaId) {
-      this.zoomedProfile = this.getProfileInfo(skyforaId)
+    async zoomProfile(skyforaId) {
+
+      var self = this
+      this.zoomedProfile = await this.getProfileInfo(skyforaId)
       this.zoomedProfileId = skyforaId
 
-      this.getZoomedProfilePosts()
+      window.location.hash = `${skyforaId}${this.zoomedPostId ? ':' + this.zoomedPostId : ''}`
 
-      this.$forceUpdate()
+      self.getZoomedProfilePosts()
+      self.$nextTick(() => {
+        self.$forceUpdate()
+      })
+
+    },
+
+    getProfileLink(id) {
+      function copyStringToClipboard (str) {
+       // Create new element
+       var el = document.createElement('textarea');
+       // Set value (string to be copied)
+       el.value = str;
+       // Set non-editable to avoid focus and move outside of view
+       el.setAttribute('readonly', '');
+       el.style = {position: 'absolute', left: '-9999px'};
+       document.body.appendChild(el);
+       // Select text inside element
+       el.select();
+       // Copy text to clipboard
+       document.execCommand('copy');
+       // Remove temporary element
+       document.body.removeChild(el);
+      }
+      let link = `${window.location.origin}/#${id}`
+      copyStringToClipboard(
+        link
+      )
+      M.toast({html: `Shareable profile link copied to clipboard!<br>${link}`})
     },
 
     // GUI
@@ -353,6 +405,7 @@ var app = new Vue({
     async skyDbRead(publicKey, dataKey) {
       try {
         const res = await this.skyClient.db.getJSON(publicKey, dataKey);
+
         return res
       } catch (error) {
         if (await this.skynetError(error)) {
@@ -415,6 +468,15 @@ var app = new Vue({
       this.$refs.inputFile.value=''
     },
 
+    reloadAll() {
+      this.loadProfile()
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    },
+
     async addPost() {
 
       await this.uploadMedia()
@@ -426,6 +488,11 @@ var app = new Vue({
 
       this.$forceUpdate()
 
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+
       this.ui.el.postEditor.close()
       this.saveData()
     },
@@ -435,9 +502,10 @@ var app = new Vue({
       await this.uploadMedia()
 
       let p = this.userPosts
-      p = p.filter(x => x.id = this.ui.newPost.id)[0]
+      p = p.filter(x => x.id == this.ui.newPost.id)[0]
       let pindex = this.userPosts.indexOf(p)
       this.ui.newPost.updated = (new Date())
+      let a = this.userPosts[pindex]
       this.userPosts[pindex] = JSON.parse(JSON.stringify(this.ui.newPost))
 
       this.ui.el.postEditor.close()
@@ -493,13 +561,18 @@ var app = new Vue({
     addSourceToWatchlist(source) {
 
       if (source) {
-        if (this.userWatchlist.indexOf(source) < 0) {
-          this.userWatchlist.push(source)
-          this.saveData()
-          this.ui.el.sourceEditor.close()
+        if (this.userSkyforaId == source) {
+          alert('You cannot follow youself.')
         }
         else {
-          alert('Source is already in your watchlist.')
+          if (this.userWatchlist.indexOf(source) < 0) {
+            this.userWatchlist.push(source)
+            this.saveData()
+            this.ui.el.sourceEditor.close()
+          }
+          else {
+            alert('Source is already in your watchlist.')
+          }
         }
       }
 
@@ -564,14 +637,14 @@ var app = new Vue({
       }
 
       if (
-        localStorage.login == this.user.login &&
-        localStorage.password == this.user.password
+        localStorage.skyforaLogin == this.user.login &&
+        localStorage.skyforaPassword == this.user.password
       ) {
         if (
           confirm(`Do you want to forget these credentials? ( ${this.user.login} )`)
         ) {
-          localStorage.login = ''
-          localStorage.password = ''
+          localStorage.skyforaLogin = ''
+          localStorage.skyforaPassword = ''
           this.loggedIn = false
           location.reload()
         }
@@ -599,8 +672,8 @@ var app = new Vue({
         if (
           confirm('Do you want to remember these credentials in this device (unsafe) ?')
         ) {
-          localStorage.login = this.user.login
-          localStorage.password = this.user.password
+          localStorage.skyforaLogin = this.user.login
+          localStorage.skyforaPassword = this.user.password
         }
       }
 
@@ -715,7 +788,7 @@ var app = new Vue({
           var wi = w[i]
           xhr.onload = async () => {
             if (xhr.status != 200) {
-              console.log(`Error ${xhr.status}: ${xhr.statusText}`)
+              console.error(`Error ${xhr.status}: ${xhr.statusText}`)
             } else {
 
               let listIds = self.matchSkyforaIds(xhr.response)
@@ -853,7 +926,6 @@ var app = new Vue({
     },
 
     async loadNewSource() {
-
       let res = await this.skyDbRead(skyforaIdToPublicKey(this.ui.newSource), this.conf.channel)
 
       if (res && res.data) {
@@ -875,7 +947,8 @@ var app = new Vue({
     async loadPost(postId) {
       let skyforaId = postId.split(':')[0]
       let id = postId.split(':')[1]
-      let res = await this.skyDbRead(skyforaIdToPublicKey(skyforaId), this.conf.channel)
+      let res = this.getProfileInfo(skyforaId)
+
       if (res && res.data) {
         this.dataCache[skyforaId] = res.data
 
@@ -930,7 +1003,6 @@ var app = new Vue({
 
       let dp = postlist
 
-
       if (!traceReps) {
         var allReps = dp.filter(x => this.isPostId(x.subject))
         dp = dp.filter(x => !this.isPostId(x.subject))
@@ -943,7 +1015,12 @@ var app = new Vue({
             }
             list[i].replies = this.getPosts(this.getPostId(list[i]))
             if (list[i].replies.length > 0) {
-              populateReps(list[i].replies)
+              try {
+                populateReps(list[i].replies)
+              } catch (e) {
+                console.error(e)
+
+              }
             }
           }
         }
@@ -1012,11 +1089,16 @@ var app = new Vue({
       let r = []
 
       if (filterStr && filterStr.length > 0) {
+
         r.push(...this.userPosts.filter(x => {
-          return x.subject.indexOf(filterStr) > -1 || x.text.indexOf(filterStr) > -1
+          return x.subject.indexOf(filterStr) > -1
+          && x.id != filterStr.split(':')[1]
+          // || x.text.indexOf(filterStr) > -1
         }))
         r.push(...this.watchlistPosts.filter(x => {
-          return x.subject.indexOf(filterStr) > -1 || x.text.indexOf(filterStr) > -1
+          return x.subject.indexOf(filterStr) > -1
+          && x.id != filterStr.split(':')[1]
+          // || x.text.indexOf(filterStr) > -1
         }))
       }
       else {
@@ -1094,13 +1176,14 @@ var app = new Vue({
           }
         }
         else {
-          return this.skyDbRead(this.user.publicKey, this.conf.channel)
+          var self = this
+          return this.skyDbRead(skyforaIdToPublicKey(skyforaId), this.conf.channel)
           .then(res => {
             if (res !== null) {
-              this.dataCache[skyforaId] = res.data
+              self.dataCache[skyforaId] = res.data
               return {
                 rel: 'unknown',
-                data: this.dataCache[skyforaId]
+                data: self.dataCache[skyforaId]
               }
             }
           })

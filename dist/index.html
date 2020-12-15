@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SkyFora</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <script src="https://unpkg.com/clipboard@2/dist/clipboard.min.js"></script>
     <script src="https://unpkg.com/vue@2.6.12/dist/vue.min.js"></script>
     <script src="https://unpkg.com/http-vue-loader"></script>
 
@@ -21,7 +23,9 @@
           <li><a @click.stop="openSidebar('watchlist')">watchlist</a></li>
           <li class="divider"></li>
           <li><a @click.stop="ui.el.confEditor.open()">settings</a></li>
-          <li><a @click.stop="ui.showHelp = !ui.showHelp; $forceUpdate()">help</a></li>
+
+          <li v-if="loggedIn"><a @click.stop="ui.el.helpView.open()">help</a></li>
+
           <li class="divider"></li>
           <li><a @click.stop="openSidebar('login')">{{ loggedIn ? 'logout' : 'login'}}</a></li>
         </ul>
@@ -61,6 +65,10 @@
                   / {{watchlistSourceCount}}
                 </span>]
               </span>
+            </div>
+              <div class="sec" @click.stop="reloadAll()">
+              <span class="material-icons"
+              >cached</span>
             </div>
           </div>
         </nav>
@@ -102,9 +110,10 @@
             <div class="right"
             style="margin: 2em 3em;">
 
+
               <a
                 class="btn right"
-                v-if="['me', 'watchlist'].indexOf(zoomedProfile.rel) < 0"
+                v-if=" loggedIn && ['me', 'watchlist'].indexOf(zoomedProfile.rel) < 0"
                 @click="openSourceEditor(zoomedProfileId)"
               >
                 Add to watchlist
@@ -116,25 +125,60 @@
               >
                 Remove from watchlist
               </a>
+              <a
+                class="btn right"
+                style="margin-right: 1em;"
+                @click="getProfileLink(zoomedProfileId)"
+              >
+                Share Profile
+              </a>
             </div>
 
             <h3
             >{{shownProfileName(zoomedProfileId)}}</h3>
 
-            {{zoomedProfileId}}
-
             <div >
               <hr>
-              <a @click="unzoomProfile"> <i class="material-icons">keyboard_arrow_left</i>See all posts </a>
+              <a @click="unzoomProfile" v-if="loggedIn"> <i class="material-icons">keyboard_arrow_left</i>See all posts </a>
               <a class="btn right"
               style="margin-right: 3em;"
               @click="showZoomedProfile()"> <i class="material-icons"></i>See Profile Info</a>
-              <div class="chip right" style="margin-right: 1em;">{{zoomedProfile.data.posts.length}} posts from {{shownProfileName(zoomedProfileId)}} </div>
+              <div class="chip right" style="margin-right: 1em;">
+                {{zoomedProfile.data.posts.length}} posts from {{shownProfileName(zoomedProfileId)}}
+              </div>
               <br><br>
             </div>
           </div>
-          <div v-if="!loggedIn">
-            <h3>Welcome to Skyfora</h3>
+
+          <postlist
+
+
+            :style="{
+              marginTop: zoomedProfile != undefined ? '12em' : '0'
+            }"
+
+            :posts="displayPosts"
+            :user-skyfora-id="userSkyforaId"
+            :zoomed-profile="zoomedProfileId"
+            :zoomed-post-id="zoomedPostId"
+
+            @edit-post="editPost"
+            @remove-post="removePost"
+            @create-post="createPost"
+            @hover-profile="hoverProfile"
+            @profile-click="zoomProfile"
+
+          >
+          </postlist>
+
+
+
+          <div v-if="!loggedIn"
+          :style="{
+            marginTop: zoomedProfile != undefined ? '12em' : '0'
+          }">
+            <hr>
+            <h3>This is SkyFora!</h3>
             <sub>beta version</sub>
             <hr>
 
@@ -173,65 +217,6 @@
 
 
           </div>
-          <div v-if="(loggedIn && displayPosts.length == 0) || ui.showHelp"
-          >
-            <a v-if="ui.showHelp" @click="ui.showHelp = false; $forceUpdate()" style="float:right;">
-              close quick help
-            </a>
-            <h4 v-if="displayPosts.length == 0">There are no posts here yet!</h4>
-            <h4 v-else>Quick help</h4>
-            <h5>Add sources to your Watchlist</h5>
-            You can follow other Skyfora users posts by adding their Skyfora IDs to your watchlist.<br>
-            You can also add URLs to lists of Skyfora IDs to follow all IDs in that URL.
-
-            <ol>
-              <li>
-                Click on the <i class="material-icons">visibility</i> above or use the menu to open your <a @click.stop="openSidebar('watchlist')">watchlist</a>.
-              </li>
-              <li>
-                You can add a Skyfora ID (like <b>ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ</b>) to you watchlist by click 'ADD SOURCE'
-              </li>
-              <li>
-                Try adding a URL with a list of Skyfora ID to watch all of them.
-              </li>
-              <li>
-                Share your own Skyfora ID ({{userSkyforaId}}) with others!
-              </li>
-            </ol>
-            <hr>
-            <h5>Create your first post</h5>
-            <ol>
-              <li>
-                Click <a @click="createPost(undefined)">here</a> or use the 'NEW POST' button below
-              </li>
-              <li>
-                Write your post's subject, text, add any files/media you like and click 'PUBLISH POST'
-                <sup>Large files can take a long time to upload, so please be mindful of file sizes!</sup>
-              </li>
-              <li>
-                Wait for your post to be published, and share your SkyforaID with others so they can read it!
-              </li>
-            </ol>
-          </div>
-          <postlist
-
-            v-if="loggedIn"
-
-            :style="{
-              marginTop: zoomedProfile != undefined ? '12em' : '0'
-            }"
-
-            :posts="displayPosts"
-            :user-skyfora-id="userSkyforaId"
-            :zoomed-profile="zoomedProfileId"
-
-            @edit-post="editPost"
-            @remove-post="removePost"
-            @create-post="createPost"
-            @hover-profile="hoverProfile"
-            @profile-click="zoomProfile"
-
-          />
 
         </div>
         <div class="col s4" id="sidebar" @click.stop.prevent="ui.sidebarOpen = true"  :class="{
@@ -475,6 +460,51 @@
           <a class="btn" @click="ui.newPost.id ? updatePost(): addPost()">
             {{ui.newPost.id ? 'Update post' : 'Publish post' }}
           </a>
+        </div>
+      </div>
+
+      <div id="help-view" class="modal" @click.stop>
+        <div class="modal-content">
+          <h5>
+            SkyFora Help
+
+            <a class="right btn-flat" @click="ui.el.helpView.close()">
+              <i class="material-icons">close</i>
+            </a>
+          </h5>
+          <hr>
+          <b>Add sources to your Watchlist</b>
+          You can follow other Skyfora users posts by adding their Skyfora IDs to your watchlist.<br>
+          You can also add URLs to lists of Skyfora IDs to follow all IDs in that URL.
+
+          <ol>
+            <li>
+              Click on the <i class="material-icons">visibility</i> above or use the menu to open your <a @click.stop="openSidebar('watchlist')">watchlist</a>.
+            </li>
+            <li>
+              You can add a Skyfora ID (like <b>ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ</b>) to you watchlist by click 'ADD SOURCE'
+            </li>
+            <li>
+              Try adding a URL with a list of Skyfora ID to watch all of them.
+            </li>
+            <li>
+              Share your own Skyfora ID ({{userSkyforaId}}) with others!
+            </li>
+          </ol>
+          <hr>
+          <b>Create your first post</b>
+          <ol>
+            <li>
+              Click <a @click="createPost(undefined)">here</a> or use the 'NEW POST' button below
+            </li>
+            <li>
+              Write your post's subject, text, add any files/media you like and click 'PUBLISH POST'
+              <sup>Large files can take a long time to upload, so please be mindful of file sizes!</sup>
+            </li>
+            <li>
+              Wait for your post to be published, and share your SkyforaID with others so they can read it!
+            </li>
+          </ol>
         </div>
       </div>
 
