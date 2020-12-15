@@ -10,4 +10,4 @@ Demo Video:
 https://siasky.net/AADAT0GCtg6EFU4xZYQyDRcjYcdmNkzQCFvoDh3K5TAwrw/
 
 Latest (beta) version:
-https://fg16f5absa16arg0hj3dj3k1lom1rrgohdrmnailrj7v8vsq4spe1go.siasky.net/#ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ
+https://fg16md45svegjee6eufr68kke9tj3tsaveqvmnnhd2kf061q2m1d9no.siasky.net/#ṲẦẽṙỎṶỏựṐṬṧṺḮẕầṂṡỬỈḌểṋṕỏẩẜṎỦỈẉṫḽ

@@ -994,14 +994,15 @@ var app = new Vue({
     },
     async refreshDisplayPosts(postlist, traceReps) {
       if (postlist == undefined) {
-        if (this.zoomedProfile) {
-          // prevent reloading when zoomed on profile
-          return
-        }
+        // if (this.zoomedProfile) {
+        //   // prevent reloading when zoomed on profile
+        //   return
+        // }
         postlist = this.getPosts()
       }
 
       let dp = postlist
+
 
       if (!traceReps) {
         var allReps = dp.filter(x => this.isPostId(x.subject))
@@ -1009,7 +1010,8 @@ var app = new Vue({
 
         var populateReps = (list) => {
           for (var i = 0; i < list.length; i++) {
-            let idx = allReps.indexOf(list[i])
+            let idx = allReps.filter( x => x.id == list[i].id)[0]
+            idx = allReps.indexOf(idx)
             if ( idx > -1) {
               allReps.splice(idx, 1)
             }
@@ -1019,7 +1021,6 @@ var app = new Vue({
                 populateReps(list[i].replies)
               } catch (e) {
                 console.error(e)
-
               }
             }
           }
@@ -1029,7 +1030,6 @@ var app = new Vue({
           dp.push(
             ...(await this.getPostTrace(allReps[i]))
           )
-
         }
       }
 
@@ -1086,18 +1086,17 @@ var app = new Vue({
       return s.match(/([ḀḁḂḃḄḅḆḇḈḉḊḋḌḍḎḏḐḑḒḓḔḕḖḗḘḙḚḛḜḝḞḟḠḡḢḣḤḥḦḧḨḩḪḫḬḭḮḯḰḱḲḳḴḵḶḷḸḹḺḻḼḽḾḿṀṁṂṃṄṅṆṇṈṉṊṋṌṍṎṏṐṑṒṓṔṕṖṗṘṙṚṛṜṝṞṟṠṡṢṣṤṥṦṧṨṩṪṫṬṭṮṯṰṱṲṳṴṵṶṷṸṹṺṻṼṽṾṿẀẁẂẃẄẅẆẇẈẉẊẋẌẍẎẏẐẑẒẓẔẕẖẗẘẙẚẛẜẝẞẟẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹỺỻỼỽỾỿ]{32}:[A-Za-z0-9_-]{24})/g)
     },
     getPosts(filterStr) {
+
       let r = []
 
       if (filterStr && filterStr.length > 0) {
 
         r.push(...this.userPosts.filter(x => {
-          return x.subject.indexOf(filterStr) > -1
-          && x.id != filterStr.split(':')[1]
+          return x.subject == filterStr
           // || x.text.indexOf(filterStr) > -1
         }))
         r.push(...this.watchlistPosts.filter(x => {
-          return x.subject.indexOf(filterStr) > -1
-          && x.id != filterStr.split(':')[1]
+          return x.subject == filterStr
           // || x.text.indexOf(filterStr) > -1
         }))
       }
@@ -1181,6 +1180,10 @@ var app = new Vue({
           .then(res => {
             if (res !== null) {
               self.dataCache[skyforaId] = res.data
+              self.userWatchlistCache.push(skyforaId)
+
+              self.updateWatchlistPosts++
+
               return {
                 rel: 'unknown',
                 data: self.dataCache[skyforaId]
